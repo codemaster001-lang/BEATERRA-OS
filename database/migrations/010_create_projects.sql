@@ -1,0 +1,6 @@
+CREATE TABLE projects (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, client_id BIGINT UNSIGNED NOT NULL, manager_user_id BIGINT UNSIGNED NULL, name VARCHAR(200) NOT NULL, code VARCHAR(50) NOT NULL, description TEXT NULL, location VARCHAR(255) NULL,
+ status ENUM('draft','planned','in_progress','on_hold','completed','cancelled') NOT NULL DEFAULT 'draft', start_date DATE NULL, expected_end_date DATE NULL, actual_end_date DATE NULL, budget_amount DECIMAL(15,2) NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_projects_code (code), KEY idx_projects_client_status (client_id,status), KEY idx_projects_manager (manager_user_id),
+ CONSTRAINT chk_project_budget CHECK (budget_amount IS NULL OR budget_amount >= 0), CONSTRAINT chk_project_expected_end CHECK (start_date IS NULL OR expected_end_date IS NULL OR expected_end_date >= start_date), CONSTRAINT chk_project_actual_end CHECK (start_date IS NULL OR actual_end_date IS NULL OR actual_end_date >= start_date), CONSTRAINT fk_projects_client FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT, CONSTRAINT fk_projects_manager FOREIGN KEY (manager_user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

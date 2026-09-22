@@ -1,0 +1,6 @@
+CREATE TABLE quotes (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, client_id BIGINT UNSIGNED NOT NULL, project_id BIGINT UNSIGNED NULL, created_by_user_id BIGINT UNSIGNED NULL, quote_number VARCHAR(50) NOT NULL, issue_date DATE NOT NULL, valid_until DATE NULL,
+ status ENUM('draft','sent','accepted','rejected','expired','cancelled') NOT NULL DEFAULT 'draft', subtotal DECIMAL(15,2) NOT NULL DEFAULT 0.00, tax_amount DECIMAL(15,2) NOT NULL DEFAULT 0.00, total_amount DECIMAL(15,2) GENERATED ALWAYS AS (subtotal + tax_amount) STORED, notes TEXT NULL,
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_quotes_number (quote_number), KEY idx_quotes_client_status (client_id,status), KEY idx_quotes_project (project_id),
+ CONSTRAINT chk_quotes_amounts CHECK (subtotal >= 0 AND tax_amount >= 0), CONSTRAINT chk_quotes_validity CHECK (valid_until IS NULL OR valid_until >= issue_date), CONSTRAINT fk_quotes_client FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE RESTRICT, CONSTRAINT fk_quotes_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT, CONSTRAINT fk_quotes_user FOREIGN KEY (created_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

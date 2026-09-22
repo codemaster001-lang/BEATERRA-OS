@@ -1,0 +1,681 @@
+﻿import { useEffect, useMemo, useState } from 'react'
+import logo from './assets/logo.png'
+import './App.css'
+
+type View =
+  | 'dashboard'
+  | 'btp'
+  | 'transport'
+  | 'agriculture'
+  | 'elevage'
+  | 'finances'
+  | 'agenda'
+  | 'settings'
+
+type NavigationItem = {
+  id: View
+  label: string
+  icon: string
+}
+
+type Pole = {
+  id: View
+  name: string
+  description: string
+  symbol: string
+}
+
+const navigation: NavigationItem[] = [
+  { id: 'dashboard', label: 'Tableau de bord', icon: '⌂' },
+  { id: 'btp', label: 'BTP', icon: '▦' },
+  { id: 'transport', label: 'Transport', icon: '↗' },
+  { id: 'agriculture', label: 'Agriculture', icon: '⌁' },
+  { id: 'elevage', label: 'Élevage', icon: '◇' },
+  { id: 'finances', label: 'Finances', icon: '₣' },
+  { id: 'agenda', label: 'Agenda PDG', icon: '□' },
+  { id: 'settings', label: 'Paramètres', icon: '⚙' },
+]
+
+const poles: Pole[] = [
+  {
+    id: 'btp',
+    name: 'BTP',
+    description: 'Plans, clients et projets',
+    symbol: 'B',
+  },
+  {
+    id: 'transport',
+    name: 'Transport',
+    description: 'Motos, taxis, bus et camions',
+    symbol: 'T',
+  },
+  {
+    id: 'agriculture',
+    name: 'Agriculture',
+    description: 'Production et exploitation',
+    symbol: 'A',
+  },
+  {
+    id: 'elevage',
+    name: 'Élevage',
+    description: 'Suivi du cheptel',
+    symbol: 'É',
+  },
+]
+
+const chartValues = [0, 0, 0, 0, 0, 0, 0]
+const chartLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
+function EmptyLineChart() {
+  const width = 720
+  const height = 240
+  const left = 48
+  const right = 20
+  const top = 20
+  const bottom = 42
+  const plotWidth = width - left - right
+  const plotHeight = height - top - bottom
+
+  const points = chartValues
+    .map((value, index) => {
+      const x = left + (plotWidth / (chartValues.length - 1)) * index
+      const y = top + plotHeight - (value / 100) * plotHeight
+      return x + ',' + y
+    })
+    .join(' ')
+
+  return (
+    <div className="chart-wrap">
+      <svg
+        viewBox="0 0 720 240"
+        className="line-chart"
+        role="img"
+        aria-label="Graphique d’évolution"
+      >
+        {[0, 25, 50, 75, 100].map((value) => {
+          const y = top + plotHeight - (value / 100) * plotHeight
+
+          return (
+            <line
+              key={value}
+              x1={left}
+              y1={y}
+              x2={width - right}
+              y2={y}
+              className="chart-grid-line"
+            />
+          )
+        })}
+
+        <polyline points={points} className="chart-line" fill="none" />
+
+        {chartValues.map((value, index) => {
+          const x = left + (plotWidth / (chartValues.length - 1)) * index
+          const y = top + plotHeight - (value / 100) * plotHeight
+
+          return (
+            <circle
+              key={value + '-' + index}
+              cx={x}
+              cy={y}
+              r="4"
+              className="chart-point"
+            />
+          )
+        })}
+
+        {chartLabels.map((label, index) => {
+          const x = left + (plotWidth / (chartLabels.length - 1)) * index
+
+          return (
+            <text
+              key={label}
+              x={x}
+              y={height - 12}
+              textAnchor="middle"
+              className="chart-label"
+            >
+              {label}
+            </text>
+          )
+        })}
+      </svg>
+
+      <div className="chart-empty">
+        <strong>Aucune donnée</strong>
+        <span>
+          Le graphique se remplira avec les opérations enregistrées.
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function EmptyBarChart() {
+  const labels = ['BTP', 'Transport', 'Agriculture', 'Élevage']
+
+  return (
+    <div className="bar-chart">
+      <div className="bar-chart-area">
+        {labels.map((label) => (
+          <div className="bar-column" key={label}>
+            <div className="bar-value">0</div>
+            <div className="bar-track">
+              <div className="bar-fill" />
+            </div>
+            <span>{label}</span>
+          </div>
+        ))}
+      </div>
+
+      <div className="chart-empty compact">
+        <strong>Pas encore de données</strong>
+        <span>
+          Les valeurs apparaîtront après les premières opérations.
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function App() {
+  const [view, setView] = useState<View>('dashboard')
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark')
+  const [securityCode, setSecurityCode] = useState('')
+  const [newCode, setNewCode] = useState('')
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    const savedTheme = localStorage.getItem('beaterra_theme')
+
+    if (savedTheme === 'dark' || savedTheme === 'light') {
+      setTheme(savedTheme)
+    }
+
+    const savedCode = localStorage.getItem('beaterra_security_code')
+
+    if (savedCode) {
+      setSecurityCode(savedCode)
+    }
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme
+    localStorage.setItem('beaterra_theme', theme)
+  }, [theme])
+
+  const pageTitle = useMemo(() => {
+    const item = navigation.find((entry) => entry.id === view)
+    return item ? item.label : 'Tableau de bord'
+  }, [view])
+
+  const changeSecurityCode = () => {
+    if (!/^\d{4,8}$/.test(newCode)) {
+      setMessage('Le code doit contenir entre 4 et 8 chiffres.')
+      return
+    }
+
+    localStorage.setItem('beaterra_security_code', newCode)
+    setSecurityCode(newCode)
+    setNewCode('')
+    setMessage('Code de sécurité enregistré.')
+  }
+
+  const handleLogout = () => {
+    sessionStorage.removeItem('beaterra_session')
+    localStorage.removeItem('beaterra_session')
+    setView('dashboard')
+    setMessage('Session déconnectée.')
+  }
+
+  return (
+    <div className={'app-shell ' + theme}>
+      <aside className="sidebar">
+        <div className="brand">
+          <img src={logo} alt="BEATERRA" className="brand-logo" />
+          <div className="brand-version">OS • Direction</div>
+        </div>
+
+        <nav className="sidebar-nav">
+          <div className="nav-group-label">NAVIGATION</div>
+
+          {navigation.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={'nav-item ' + (view === item.id ? 'active' : '')}
+              onClick={() => {
+                setView(item.id)
+                setMessage('')
+              }}
+            >
+              <span className="nav-icon">{item.icon}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        <div className="sidebar-bottom">
+          <div className="system-status">
+            <span className="status-dot" />
+            <div>
+              <strong>Système opérationnel</strong>
+              <span>BEATERRA OS</span>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="logout-button"
+            onClick={handleLogout}
+          >
+            <span>↪</span>
+            Déconnexion
+          </button>
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">BEATERRA OS</p>
+            <h1>{pageTitle}</h1>
+            <p className="subtitle">
+              Pilotage centralisé des activités de BEATERRA.
+            </p>
+          </div>
+
+          <div className="profile-badge">
+            <span className="profile-avatar">PDG</span>
+            <div>
+              <strong>Direction</strong>
+              <span>Fondateur</span>
+            </div>
+          </div>
+        </header>
+
+        {view === 'dashboard' && (
+          <>
+            <section className="hero-card">
+              <div>
+                <span className="hero-label">BEATERRA</span>
+                <h2>Bâtir et développer la terre avec excellence.</h2>
+                <p>
+                  Pilotez vos activités, vos projets, vos ressources et vos
+                  finances depuis un espace unique.
+                </p>
+              </div>
+
+              <div className="hero-mark">B</div>
+            </section>
+
+            <section className="stats-grid">
+              <article className="stat-card">
+                <span>Projets BTP</span>
+                <strong>0</strong>
+                <small>À suivre</small>
+              </article>
+
+              <article className="stat-card">
+                <span>Véhicules</span>
+                <strong>0</strong>
+                <small>Parc actuel</small>
+              </article>
+
+              <article className="stat-card">
+                <span>Solde financier</span>
+                <strong>0 FCFA</strong>
+                <small>Solde actuel</small>
+              </article>
+
+              <article className="stat-card">
+                <span>Opérations</span>
+                <strong>0</strong>
+                <small>Tous pôles confondus</small>
+              </article>
+            </section>
+
+            <section className="dashboard-grid">
+              <article className="panel panel-large">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">ÉVOLUTION</p>
+                    <h2>Activité globale</h2>
+                  </div>
+                  <span className="period-badge">7 jours</span>
+                </div>
+
+                <EmptyLineChart />
+              </article>
+
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">RÉPARTITION</p>
+                    <h2>Activité par pôle</h2>
+                  </div>
+                </div>
+
+                <EmptyBarChart />
+              </article>
+            </section>
+
+            <section className="section-block">
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">ACTIVITÉS</p>
+                  <h2>Les quatre pôles</h2>
+                </div>
+              </div>
+
+              <div className="poles-grid">
+                {poles.map((pole) => (
+                  <button
+                    key={pole.id}
+                    type="button"
+                    className="pole-card"
+                    onClick={() => setView(pole.id)}
+                  >
+                    <span className={'pole-icon ' + pole.id}>
+                      {pole.symbol}
+                    </span>
+
+                    <span className="pole-content">
+                      <strong>{pole.name}</strong>
+                      <span>{pole.description}</span>
+                    </span>
+
+                    <span className="arrow">→</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+
+        {view !== 'dashboard' &&
+          view !== 'settings' &&
+          view !== 'finances' &&
+          view !== 'agenda' && (
+            <section className="module-page">
+              <div className="module-hero">
+                <div>
+                  <p className="eyebrow">MODULE</p>
+                  <h2>{pageTitle}</h2>
+                  <p>
+                    Les données apparaîtront ici dès que les premières
+                    opérations seront enregistrées.
+                  </p>
+                </div>
+
+                <div className="module-number">0</div>
+              </div>
+
+              <div className="dashboard-grid">
+                <article className="panel panel-large">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">ÉVOLUTION</p>
+                      <h2>Activité du module</h2>
+                    </div>
+                  </div>
+
+                  <EmptyLineChart />
+                </article>
+
+                <article className="panel">
+                  <div className="panel-heading">
+                    <div>
+                      <p className="eyebrow">DONNÉES</p>
+                      <h2>Activité récente</h2>
+                    </div>
+                  </div>
+
+                  <div className="empty-table">
+                    <strong>Aucune donnée enregistrée</strong>
+                    <span>
+                      Les informations apparaîtront automatiquement ici.
+                    </span>
+                  </div>
+                </article>
+              </div>
+            </section>
+          )}
+
+        {view === 'finances' && (
+          <section className="module-page">
+            <div className="module-hero">
+              <div>
+                <p className="eyebrow">MODULE FINANCIER</p>
+                <h2>Finances BEATERRA</h2>
+                <p>
+                  Suivi des recettes, dépenses, soldes et transactions.
+                </p>
+              </div>
+
+              <div className="module-number">₣</div>
+            </div>
+
+            <section className="stats-grid finance-stats">
+              <article className="stat-card">
+                <span>Recettes</span>
+                <strong>0 FCFA</strong>
+                <small>Total enregistré</small>
+              </article>
+
+              <article className="stat-card">
+                <span>Dépenses</span>
+                <strong>0 FCFA</strong>
+                <small>Total enregistré</small>
+              </article>
+
+              <article className="stat-card">
+                <span>Solde</span>
+                <strong>0 FCFA</strong>
+                <small>Recettes - dépenses</small>
+              </article>
+
+              <article className="stat-card">
+                <span>Transactions</span>
+                <strong>0</strong>
+                <small>Opérations financières</small>
+              </article>
+            </section>
+
+            <div className="dashboard-grid">
+              <article className="panel panel-large">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">ÉVOLUTION</p>
+                    <h2>Évolution du solde</h2>
+                  </div>
+                  <span className="period-badge">30 jours</span>
+                </div>
+
+                <EmptyLineChart />
+              </article>
+
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">FLUX FINANCIERS</p>
+                    <h2>Recettes / dépenses</h2>
+                  </div>
+                </div>
+
+                <EmptyBarChart />
+              </article>
+            </div>
+
+            <article className="panel transactions-panel">
+              <div className="panel-heading">
+                <div>
+                  <p className="eyebrow">JOURNAL</p>
+                  <h2>Dernières transactions</h2>
+                </div>
+              </div>
+
+              <div className="empty-table">
+                <strong>Aucune transaction enregistrée</strong>
+                <span>
+                  Les mouvements financiers apparaîtront ici.
+                </span>
+              </div>
+            </article>
+          </section>
+        )}
+
+        {view === 'agenda' && (
+          <section className="module-page">
+            <div className="module-hero">
+              <div>
+                <p className="eyebrow">AGENDA PDG</p>
+                <h2>Organisation et priorités</h2>
+                <p>
+                  Planning, tâches, priorités et suivi des activités du PDG.
+                </p>
+              </div>
+
+              <div className="module-number">□</div>
+            </div>
+
+            <div className="dashboard-grid">
+              <article className="panel panel-large">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">PLANNING</p>
+                    <h2>Agenda</h2>
+                  </div>
+                </div>
+
+                <div className="empty-table">
+                  <strong>Aucune tâche planifiée</strong>
+                  <span>Votre planning apparaîtra ici.</span>
+                </div>
+              </article>
+
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">PRIORITÉS</p>
+                    <h2>Important / urgent</h2>
+                  </div>
+                </div>
+
+                <div className="empty-table">
+                  <strong>Aucune priorité</strong>
+                  <span>Ajoutez des tâches pour alimenter cette vue.</span>
+                </div>
+              </article>
+            </div>
+          </section>
+        )}
+
+        {view === 'settings' && (
+          <section className="settings-page">
+            <div className="settings-grid">
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">SÉCURITÉ</p>
+                    <h2>Code de sécurité</h2>
+                  </div>
+                </div>
+
+                <div className="settings-form">
+                  <label>
+                    Code actuel
+                    <input
+                      type="password"
+                      value={securityCode}
+                      readOnly
+                      placeholder="Aucun code enregistré"
+                    />
+                  </label>
+
+                  <label>
+                    Nouveau code
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={8}
+                      value={newCode}
+                      onChange={(event) =>
+                        setNewCode(event.target.value.replace(/\D/g, ''))
+                      }
+                      placeholder="4 à 8 chiffres"
+                    />
+                  </label>
+
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={changeSecurityCode}
+                  >
+                    Enregistrer le code
+                  </button>
+
+                  {message && (
+                    <div className="settings-message">{message}</div>
+                  )}
+                </div>
+              </article>
+
+              <article className="panel">
+                <div className="panel-heading">
+                  <div>
+                    <p className="eyebrow">APPARENCE</p>
+                    <h2>Thème</h2>
+                  </div>
+                </div>
+
+                <div className="theme-options">
+                  <button
+                    type="button"
+                    className={
+                      'theme-option ' +
+                      (theme === 'dark' ? 'selected' : '')
+                    }
+                    onClick={() => setTheme('dark')}
+                  >
+                    <span className="theme-preview dark-preview" />
+                    <span>
+                      <strong>Sombre</strong>
+                      <small>Interface direction</small>
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className={
+                      'theme-option ' +
+                      (theme === 'light' ? 'selected' : '')
+                    }
+                    onClick={() => setTheme('light')}
+                  >
+                    <span className="theme-preview light-preview" />
+                    <span>
+                      <strong>Clair</strong>
+                      <small>Interface lumineuse</small>
+                    </span>
+                  </button>
+                </div>
+              </article>
+            </div>
+
+            <article className="panel settings-info">
+              <p className="eyebrow">PARAMÈTRES</p>
+              <h2>Centre de contrôle BEATERRA OS</h2>
+              <p>
+                Les préférences d’apparence et le code de sécurité sont
+                actuellement conservés localement sur cet appareil.
+              </p>
+            </article>
+          </section>
+        )}
+      </main>
+    </div>
+  )
+}
+
+export default App

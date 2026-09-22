@@ -1,0 +1,23 @@
+import { Router } from 'express';
+import { healthRouter } from './health.routes.js';
+import { authRouter } from '../modules/auth/auth.routes.js';
+import { usersRouter } from '../modules/users/users.routes.js';
+import { financeRouter } from '../modules/finance/finance.routes.js';
+import { btpRouter } from '../modules/btp/btp.routes.js';
+import { transportRouter } from '../modules/transport/transport.routes.js';
+import { agricultureRouter } from '../modules/agriculture/agriculture.routes.js';
+import { livestockRouter } from '../modules/livestock/livestock.routes.js';
+import { agendaRouter } from '../modules/agenda/agenda.routes.js';
+import { documentsRouter } from '../modules/documents/documents.routes.js';
+
+export const apiV1Router = Router();
+apiV1Router.use(healthRouter);
+apiV1Router.use('/auth', authRouter);
+apiV1Router.use('/users', usersRouter);
+apiV1Router.use('/finances', financeRouter);
+apiV1Router.use('/btp', btpRouter);
+apiV1Router.use('/transport', transportRouter);
+apiV1Router.use('/agriculture', agricultureRouter);
+apiV1Router.use('/livestock', livestockRouter);
+apiV1Router.use('/agenda', agendaRouter);
+apiV1Router.use('/documents', documentsRouter);

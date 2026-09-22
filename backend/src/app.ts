@@ -1,0 +1,25 @@
+import cors from 'cors';
+import express from 'express';
+import path from 'node:path';
+import helmet from 'helmet';
+import { pinoHttp } from 'pino-http';
+import { corsOptions } from './config/cors.js';
+import { env } from './config/env.js';
+import { logger } from './config/logger.js';
+import { errorHandler } from './core/errors/error-handler.js';
+import { apiRateLimit } from './core/http/rate-limit.middleware.js';
+import { requestIdMiddleware } from './core/http/request-id.middleware.js';
+import { notFoundHandler } from './core/http/not-found.middleware.js';
+import { apiV1Router } from './routes/index.js';
+
+export const app = express();
+app.disable('x-powered-by');
+app.use(requestIdMiddleware);
+app.use(pinoHttp({ logger }));
+app.use(helmet());
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '1mb' }));
+app.use('/storage', express.static(path.resolve(process.cwd(), env.BTP_STORAGE_DIR)));
+app.use('/api/v1', apiRateLimit, apiV1Router);
+app.use(notFoundHandler);
+app.use(errorHandler);

@@ -1,0 +1,5 @@
+CREATE TABLE project_expenses (
+ id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY, project_id BIGINT UNSIGNED NOT NULL, financial_transaction_id BIGINT UNSIGNED NULL, recorded_by_user_id BIGINT UNSIGNED NULL, expense_date DATE NOT NULL, description VARCHAR(500) NOT NULL, amount DECIMAL(15,2) NOT NULL, supplier_name VARCHAR(200) NULL, status ENUM('pending','approved','paid','cancelled') NOT NULL DEFAULT 'pending',
+ created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uq_project_expenses_ft (financial_transaction_id), KEY idx_project_expenses_project_date (project_id,expense_date),
+ CONSTRAINT chk_project_expense_amount CHECK (amount > 0), CONSTRAINT fk_pe_project FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE RESTRICT, CONSTRAINT fk_pe_ft FOREIGN KEY (financial_transaction_id) REFERENCES financial_transactions(id) ON DELETE RESTRICT, CONSTRAINT fk_pe_user FOREIGN KEY (recorded_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -1,0 +1,141 @@
+﻿import logo from './assets/logo.png'
+import './App.css'
+
+const poles = [
+  {
+    name: 'BTP',
+    description: 'Plans, clients et projets',
+    tone: 'btp',
+  },
+  {
+    name: 'Transport',
+    description: 'Motos, taxis, bus et camions',
+    tone: 'transport',
+  },
+  {
+    name: 'Agriculture',
+    description: 'Production et exploitation',
+    tone: 'agriculture',
+  },
+  {
+    name: 'Élevage',
+    description: 'Suivi du cheptel',
+    tone: 'elevage',
+  },
+]
+
+function App() {
+  return (
+    <div className="app-shell">
+      <aside className="sidebar">
+        <div className="brand">
+          <img src={logo} alt="BEATERRA" className="brand-logo" />
+        </div>
+
+        <nav className="sidebar-nav">
+          <button className="nav-item active">Tableau de bord</button>
+          <button className="nav-item">BTP</button>
+          <button className="nav-item">Transport</button>
+          <button className="nav-item">Agriculture</button>
+          <button className="nav-item">Élevage</button>
+          <button className="nav-item">Agenda PDG</button>
+          <button className="nav-item">Paramètres</button>
+        </nav>
+
+        <div className="sidebar-footer">
+          <span className="status-dot" />
+          Système opérationnel
+        </div>
+      </aside>
+
+      <main className="main-content">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">BEATERRA OS</p>
+            <h1>Tableau de bord</h1>
+            <p className="subtitle">
+              Vue d’ensemble des quatre pôles de BEATERRA.
+            </p>
+          </div>
+
+          <div className="profile-badge">
+            <span className="profile-avatar">PDG</span>
+            <div>
+              <strong>Direction</strong>
+              <span>Fondateur</span>
+            </div>
+          </div>
+        </header>
+
+        <section className="hero-card">
+          <div>
+            <span className="hero-label">BEATERRA</span>
+            <h2>Bâtir et développer la terre avec excellence.</h2>
+            <p>
+              Pilotez vos activités, vos projets et vos ressources depuis un
+              espace unique.
+            </p>
+          </div>
+
+          <div className="hero-mark">B</div>
+        </section>
+
+        <section className="stats-grid">
+          <article className="stat-card">
+            <span>Projets BTP</span>
+            <strong>0</strong>
+            <small>À suivre</small>
+          </article>
+
+          <article className="stat-card">
+            <span>Véhicules</span>
+            <strong>0</strong>
+            <small>Parc actuel</small>
+          </article>
+
+          <article className="stat-card">
+            <span>Opérations agricoles</span>
+            <strong>0</strong>
+            <small>Enregistrées</small>
+          </article>
+
+          <article className="stat-card">
+            <span>Activités d’élevage</span>
+            <strong>0</strong>
+            <small>Enregistrées</small>
+          </article>
+        </section>
+
+        <section className="section-block">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">ACTIVITÉS</p>
+              <h2>Les quatre pôles</h2>
+            </div>
+          </div>
+
+          <div className="poles-grid">
+            {poles.map((pole) => (
+              <article className="pole-card" key={pole.name}>
+                <div className={"pole-icon " + pole.tone}>
+                  {pole.name.charAt(0)}
+                </div>
+
+                <div className="pole-content">
+                  <h3>{pole.name}</h3>
+                  <p>{pole.description}</p>
+                </div>
+
+                <span className="arrow" aria-hidden="true">
+                  →
+                </span>
+              </article>
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
+  )
+}
+
+export default App
