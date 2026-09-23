@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
+  ArrowLeft,
   ArrowRight,
+  Bike,
   Building2,
+  BusFront,
   CalendarDays,
+  CarTaxiFront,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  EyeOff,
   House,
   LogOut,
+  PanelLeftClose,
+  PanelLeftOpen,
   PawPrint,
   Settings,
   Sprout,
@@ -49,6 +57,13 @@ const transportImages = Object.entries(transportImageModules)
     }),
   )
   .map(([, imageUrl]) => imageUrl)
+
+const transportImageByName = Object.fromEntries(
+  Object.entries(transportImageModules).map(([filePath, imageUrl]) => {
+    const fileName = filePath.split('/').pop()?.toLowerCase() ?? ''
+    return [fileName, imageUrl]
+  }),
+) as Record<string, string>
 
 const btpImageModules = import.meta.glob(
   '../../btp/*.{png,jpg,jpeg,webp}',
@@ -110,6 +125,152 @@ type BtpProject = {
   status: string
 }
 
+type TransportCategoryKey = 'motorcycle' | 'taxi' | 'bus' | 'truck'
+
+type TransportSummaryItem = {
+  type: TransportCategoryKey
+  label: string
+  total: number
+  available: number
+  assigned: number
+  maintenance: number
+}
+
+type TransportDriver = {
+  id: number
+  driver_code: string
+  first_name: string
+  last_name: string
+  full_name: string
+  phone: string
+  license_number: string
+  license_category: string
+  license_expiry_date?: string | null
+  hire_date?: string | null
+  status: string
+  notes: string
+  vehicle_id?: number | null
+  vehicle_type?: string | null
+  registration_number?: string
+  brand?: string
+  model?: string
+  vehicle_status?: string
+}
+
+type TransportVehicle = {
+  id: number
+  type: string
+  registration_number: string
+  brand: string
+  model: string
+  manufacture_year?: number | null
+  status: string
+  acquisition_date?: string | null
+  notes: string
+  driver_id?: number | null
+  driver_name?: string
+}
+
+type AgendaCategory = 'cours' | 'rendez-vous' | 'tâche' | 'réunion' | 'personnel' | 'autre'
+type AgendaPriority = 'normale' | 'importante' | 'urgente'
+
+type AgendaEvent = {
+  id: string
+  title: string
+  description: string
+  date: string
+  startTime: string
+  endTime: string
+  category: AgendaCategory
+  priority: AgendaPriority
+  important: boolean
+}
+
+const AGENDA_EVENTS_KEY = 'beaterra_agenda_events'
+const AGENDA_IMPORTANT_DAYS_KEY = 'beaterra_agenda_important_days'
+
+const agendaCategoryOptions: Array<{ value: AgendaCategory; label: string }> = [
+  { value: 'cours', label: 'Cours' },
+  { value: 'rendez-vous', label: 'Rendez-vous' },
+  { value: 'tâche', label: 'Tâche' },
+  { value: 'réunion', label: 'Réunion' },
+  { value: 'personnel', label: 'Personnel' },
+  { value: 'autre', label: 'Autre' },
+]
+
+const agendaPriorityOptions: Array<{ value: AgendaPriority; label: string }> = [
+  { value: 'normale', label: 'Normale' },
+  { value: 'importante', label: 'Importante' },
+  { value: 'urgente', label: 'Urgente' },
+]
+
+const formatAgendaDateKey = (date: Date) => {
+  const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+  return offsetDate.toISOString().slice(0, 10)
+}
+
+const transportCategories: Array<{
+  id: TransportCategoryKey
+  label: string
+  shortLabel: string
+  icon: LucideIcon
+}> = [
+  { id: 'motorcycle', label: 'Moto', shortLabel: 'Moto', icon: Bike },
+  { id: 'taxi', label: 'Taxi', shortLabel: 'Taxi', icon: CarTaxiFront },
+  { id: 'bus', label: 'Bus', shortLabel: 'Bus', icon: BusFront },
+  { id: 'truck', label: 'Camion', shortLabel: 'Camion', icon: Truck },
+]
+
+const transportCategoryMeta: Record<
+  TransportCategoryKey,
+  {
+    imageFile: string
+    label: string
+    subtitle: string
+    headline: string
+    managementLabel: string
+    driverLabel: string
+    operationsLabel: string
+  }
+> = {
+  motorcycle: {
+    imageFile: 'moto.png',
+    label: 'Moto',
+    subtitle: 'Véhicule léger',
+    headline: 'Tableau de bord Moto',
+    managementLabel: 'Gestion des motos',
+    driverLabel: 'Gestion des conducteurs',
+    operationsLabel: 'Opérations / versements / paiements liés aux motos',
+  },
+  taxi: {
+    imageFile: 'taxi.png',
+    label: 'Taxi',
+    subtitle: 'Service de transport urbain',
+    headline: 'Tableau de bord Taxi',
+    managementLabel: 'Gestion des taxis',
+    driverLabel: 'Gestion des conducteurs',
+    operationsLabel: 'Opérations / versements / paiements liés aux taxis',
+  },
+  bus: {
+    imageFile: 'bus.png',
+    label: 'Bus',
+    subtitle: 'Transport en ligne',
+    headline: 'Tableau de bord Bus',
+    managementLabel: 'Gestion des bus',
+    driverLabel: 'Gestion des conducteurs',
+    operationsLabel: 'Opérations / versements / paiements liés aux bus',
+  },
+  truck: {
+    imageFile: 'camion.png',
+    label: 'Camion',
+    subtitle: 'Fret et logistique',
+    headline: 'Tableau de bord Camion',
+    managementLabel: 'Gestion des camions',
+    driverLabel: 'Gestion des conducteurs',
+    operationsLabel: 'Opérations / versements / paiements liés aux camions',
+  },
+}
+
 const navigation: NavigationItem[] = [
   { id: 'dashboard', label: 'Tableau de bord', icon: House },
   { id: 'btp', label: 'BTP', icon: Building2 },
@@ -161,6 +322,43 @@ const moduleIcons: Record<View, LucideIcon> = {
 
 const chartValues = [0, 0, 0, 0, 0, 0, 0]
 const chartLabels = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
+const PASSWORD_HASH_KEY = 'beaterra_security_password'
+const ACCESS_CODE_KEY = 'beaterra_security_code'
+
+async function verifyAccessPassword(password: string, storedHash: string) {
+  if (!storedHash || !storedHash.includes(':')) {
+    return false
+  }
+
+  const [saltHex, hashHex] = storedHash.split(':', 2)
+  const saltBytes = Uint8Array.from(
+    (saltHex.match(/.{1,2}/g) ?? []).map((byte) => Number.parseInt(byte, 16)),
+  )
+  const encoder = new TextEncoder()
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveBits'],
+  )
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: 200000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256,
+  )
+  const candidateHash = Array.from(new Uint8Array(derivedBits))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('')
+
+  return candidateHash === hashHex
+}
 
 function EmptyLineChart() {
   const width = 720
@@ -403,11 +601,17 @@ function ProfileSlideshow() {
   )
 }
 
-function TransportSlideshow() {
+function TransportSlideshow({
+  images = transportImages,
+  alt = 'Véhicule de transport',
+}: {
+  images?: string[]
+  alt?: string
+}) {
   return (
     <MediaSlideshow
-      images={transportImages}
-      alt="Véhicule de transport"
+      images={images}
+      alt={alt}
       className="hero-profile-slideshow transport-slideshow "
     />
   )
@@ -426,10 +630,82 @@ function BtpSlideshow() {
 
 function App() {
   const [view, setView] = useState<View>('dashboard')
+  const [navigationHistory, setNavigationHistory] = useState<View[]>(['dashboard'])
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [theme, setTheme] = useState<'dark' | 'light'>('dark')
   const [securityCode, setSecurityCode] = useState('')
   const [newCode, setNewCode] = useState('')
+  const [confirmNewCode, setConfirmNewCode] = useState('')
+  const [lockCode, setLockCode] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordSettings, setShowPasswordSettings] = useState(false)
+  const [agendaView, setAgendaView] = useState<'month' | 'year'>('month')
+  const [agendaDate, setAgendaDate] = useState(() => new Date())
+  const [agendaSelectedDate, setAgendaSelectedDate] = useState<string | null>(null)
+  const [agendaEditingId, setAgendaEditingId] = useState<string | null>(null)
+  const [agendaEvents, setAgendaEvents] = useState<AgendaEvent[]>(() => {
+    if (typeof window === 'undefined') {
+      return []
+    }
+
+    try {
+      const savedAgenda = localStorage.getItem(AGENDA_EVENTS_KEY)
+      return savedAgenda ? JSON.parse(savedAgenda) as AgendaEvent[] : []
+    } catch {
+      return []
+    }
+  })
+  const [agendaImportantDays, setAgendaImportantDays] = useState<Record<string, boolean>>(() => {
+    if (typeof window === 'undefined') {
+      return {}
+    }
+
+    try {
+      const savedImportantDays = localStorage.getItem(AGENDA_IMPORTANT_DAYS_KEY)
+      return savedImportantDays ? JSON.parse(savedImportantDays) as Record<string, boolean> : {}
+    } catch {
+      return {}
+    }
+  })
+  const [agendaForm, setAgendaForm] = useState({
+    title: '',
+    description: '',
+    date: formatAgendaDateKey(new Date()),
+    startTime: '09:00',
+    endTime: '10:00',
+    category: 'réunion' as AgendaCategory,
+    priority: 'normale' as AgendaPriority,
+    important: false,
+  })
+  const [isAppLocked, setIsAppLocked] = useState(true)
+  const [lockMessage, setLockMessage] = useState('Saisissez votre mot de passe pour continuer.')
   const [message, setMessage] = useState('')
+  const [transportSelectedCategory, setTransportSelectedCategory] = useState<TransportCategoryKey | 'overview'>('overview')
+  const [transportSummary, setTransportSummary] = useState<Record<TransportCategoryKey, TransportSummaryItem>>({
+    motorcycle: { type: 'motorcycle', label: 'Moto', total: 0, available: 0, assigned: 0, maintenance: 0 },
+    taxi: { type: 'taxi', label: 'Taxi', total: 0, available: 0, assigned: 0, maintenance: 0 },
+    bus: { type: 'bus', label: 'Bus', total: 0, available: 0, assigned: 0, maintenance: 0 },
+    truck: { type: 'truck', label: 'Camion', total: 0, available: 0, assigned: 0, maintenance: 0 },
+  })
+  const [transportDrivers, setTransportDrivers] = useState<TransportDriver[]>([])
+  const [transportVehicles, setTransportVehicles] = useState<TransportVehicle[]>([])
+  const [transportSearch, setTransportSearch] = useState('')
+  const [transportStatusFilter, setTransportStatusFilter] = useState('all')
+  const [isTransportDriverFormOpen, setIsTransportDriverFormOpen] = useState(false)
+  const [transportFormMode, setTransportFormMode] = useState<'create' | 'edit'>('create')
+  const [transportForm, setTransportForm] = useState({
+    first_name: '',
+    last_name: '',
+    phone: '',
+    license_number: '',
+    license_category: 'B',
+    license_expiry_date: '',
+    hire_date: '',
+    status: 'active',
+    notes: '',
+    vehicle_id: '',
+  })
+  const [editingDriverId, setEditingDriverId] = useState<number | null>(null)
 
   const [btpPlans, setBtpPlans] = useState<BtpPlan[]>([])
   const [btpProjects, setBtpProjects] = useState<BtpProject[]>([])
@@ -476,6 +752,405 @@ function App() {
     } catch (error) {
       console.error('Erreur chargement des projets BTP :', error)
       setMessage('Impossible de charger les projets BTP.')
+    }
+  }
+
+  const loadTransportSummary = async () => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/transport/summary`)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+      const payload = (await response.json()) as { data?: TransportSummaryItem[] }
+      const summary = payload.data ?? []
+      const nextSummary = { ...transportSummary }
+
+      for (const entry of summary) {
+        const key = entry.type as TransportCategoryKey
+        nextSummary[key] = entry
+      }
+
+      setTransportSummary(nextSummary)
+    } catch (error) {
+      console.error('Erreur chargement du résumé transport :', error)
+    }
+  }
+
+  const loadTransportData = async () => {
+    const categoryForQuery =
+      transportSelectedCategory === 'overview' ? 'motorcycle' : transportSelectedCategory
+
+    try {
+      const [driversResponse, vehiclesResponse] = await Promise.all([
+        fetch(`${apiBaseUrl}/transport/drivers?type=${categoryForQuery}`),
+        fetch(`${apiBaseUrl}/transport/vehicles?type=${categoryForQuery}`),
+      ])
+
+      if (!driversResponse.ok || !vehiclesResponse.ok) {
+        throw new Error('Transport data request failed')
+      }
+
+      const driversPayload = (await driversResponse.json()) as { data?: TransportDriver[] }
+      const vehiclesPayload = (await vehiclesResponse.json()) as { data?: TransportVehicle[] }
+
+      setTransportDrivers(Array.isArray(driversPayload.data) ? driversPayload.data : [])
+      setTransportVehicles(Array.isArray(vehiclesPayload.data) ? vehiclesPayload.data : [])
+    } catch (error) {
+      console.error('Erreur chargement transport :', error)
+    }
+  }
+
+  const resetTransportForm = () => {
+    setTransportForm({
+      first_name: '',
+      last_name: '',
+      phone: '',
+      license_number: '',
+      license_category: 'B',
+      license_expiry_date: '',
+      hire_date: '',
+      status: 'active',
+      notes: '',
+      vehicle_id: '',
+    })
+    setEditingDriverId(null)
+    setTransportFormMode('create')
+  }
+
+  const openTransportDriverForm = () => {
+    resetTransportForm()
+    setIsTransportDriverFormOpen(true)
+  }
+
+  const handleTransportInputChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = event.target
+    setTransportForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const transportActiveCategory = transportSelectedCategory === 'overview' ? 'motorcycle' : transportSelectedCategory
+  const transportCategoryTitle: Record<TransportCategoryKey, string> = {
+    motorcycle: 'Gestion des motos',
+    taxi: 'Gestion des taxis',
+    bus: 'Gestion des bus',
+    truck: 'Gestion des camions',
+  }
+
+  const currentTransportCategoryMeta =
+    transportSelectedCategory === 'overview'
+      ? null
+      : transportCategoryMeta[transportSelectedCategory]
+
+  const currentTransportHeroImage =
+    transportSelectedCategory === 'overview'
+      ? transportImages
+      : [transportImageByName[transportCategoryMeta[transportSelectedCategory].imageFile] ?? transportImages[0]]
+
+  const transportHeroEyebrow =
+    transportSelectedCategory === 'overview' ? 'PÔLE TRANSPORT' : currentTransportCategoryMeta?.label.toUpperCase() ?? 'TRANSPORT'
+
+  const transportHeroTitle =
+    transportSelectedCategory === 'overview' ? 'Transport' : currentTransportCategoryMeta?.label ?? 'Transport'
+
+  const transportHeroDescription =
+    transportSelectedCategory === 'overview'
+      ? 'Gérez vos véhicules, conducteurs et opérations de transport depuis un espace unique.'
+      : `${currentTransportCategoryMeta?.subtitle ?? 'Suivi du parc'} • données et opérations spécifiques à ${currentTransportCategoryMeta?.label.toLowerCase() ?? 'ce véhicule'}.`
+
+  const transportSpecificCards =
+    transportSelectedCategory === 'overview'
+      ? []
+      : [
+          {
+            label: currentTransportCategoryMeta?.managementLabel ?? 'Gestion du parc',
+            value: `${transportSummary[transportSelectedCategory].total}`,
+            suffix: 'véhicules',
+          },
+          {
+            label: currentTransportCategoryMeta?.driverLabel ?? 'Gestion des conducteurs',
+            value: `${transportSummary[transportSelectedCategory].assigned}`,
+            suffix: 'affectés',
+          },
+          {
+            label: currentTransportCategoryMeta?.operationsLabel ?? 'Opérations liées',
+            value: `${transportSummary[transportSelectedCategory].available + transportSummary[transportSelectedCategory].maintenance}`,
+            suffix: 'actives',
+          },
+        ]
+
+  const agendaYearLabel = agendaDate.toLocaleDateString('fr-FR', { year: 'numeric' })
+  const agendaMonthLabel = agendaDate.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+  const agendaWeekDays = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
+  const getAgendaCellEvents = (date: Date) =>
+    agendaEvents
+      .filter((event) => event.date === formatAgendaDateKey(date))
+      .sort((first, second) => first.startTime.localeCompare(second.startTime))
+
+  const openAgendaDateEditor = (date: Date, eventId?: string) => {
+    const selectedKey = formatAgendaDateKey(date)
+    const selectedEvent = eventId
+      ? agendaEvents.find((event) => event.id === eventId)
+      : undefined
+
+    setAgendaSelectedDate(selectedKey)
+    setAgendaEditingId(eventId ?? null)
+    setAgendaForm({
+      title: selectedEvent?.title ?? '',
+      description: selectedEvent?.description ?? '',
+      date: selectedKey,
+      startTime: selectedEvent?.startTime ?? '09:00',
+      endTime: selectedEvent?.endTime ?? '10:00',
+      category: selectedEvent?.category ?? 'réunion',
+      priority: selectedEvent?.priority ?? 'normale',
+      important: selectedEvent?.important ?? Boolean(agendaImportantDays[selectedKey]),
+    })
+  }
+
+  const resetAgendaForm = () => {
+    setAgendaSelectedDate(null)
+    setAgendaEditingId(null)
+    setAgendaForm({
+      title: '',
+      description: '',
+      date: formatAgendaDateKey(agendaDate),
+      startTime: '09:00',
+      endTime: '10:00',
+      category: 'réunion',
+      priority: 'normale',
+      important: Boolean(agendaImportantDays[formatAgendaDateKey(agendaDate)]),
+    })
+  }
+
+  const handleAgendaFormChange = (
+    event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    const { name, value, type } = event.target
+    const nextValue = type === 'checkbox' ? (event.target as HTMLInputElement).checked : value
+
+    setAgendaForm((current) => ({
+      ...current,
+      [name]: nextValue,
+    }))
+  }
+
+  const handleAgendaSave = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const cleanTitle = agendaForm.title.trim()
+    const cleanDescription = agendaForm.description.trim()
+
+    if (!cleanTitle || !agendaForm.date) {
+      setMessage('Le titre et la date de l’événement sont obligatoires.')
+      return
+    }
+
+    const nextEvent: AgendaEvent = {
+      id: agendaEditingId ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      title: cleanTitle,
+      description: cleanDescription,
+      date: agendaForm.date,
+      startTime: agendaForm.startTime,
+      endTime: agendaForm.endTime,
+      category: agendaForm.category,
+      priority: agendaForm.priority,
+      important: agendaForm.important,
+    }
+
+    setAgendaEvents((current) => {
+      const nextAgenda = agendaEditingId
+        ? current.map((item) => (item.id === agendaEditingId ? nextEvent : item))
+        : [...current, nextEvent]
+
+      return nextAgenda.sort((first, second) => {
+        const dateCompare = first.date.localeCompare(second.date)
+        if (dateCompare !== 0) {
+          return dateCompare
+        }
+
+        return first.startTime.localeCompare(second.startTime)
+      })
+    })
+
+    setAgendaImportantDays((current) => ({
+      ...current,
+      [agendaForm.date]: agendaForm.important,
+    }))
+
+    setAgendaSelectedDate(agendaForm.date)
+    setAgendaEditingId(null)
+    setAgendaForm({
+      title: '',
+      description: '',
+      date: agendaForm.date,
+      startTime: agendaForm.startTime,
+      endTime: agendaForm.endTime,
+      category: agendaForm.category,
+      priority: agendaForm.priority,
+      important: agendaForm.important,
+    })
+    setMessage('Événement enregistré.')
+  }
+
+  const handleAgendaDelete = (eventId: string) => {
+    const targetEvent = agendaEvents.find((event) => event.id === eventId)
+
+    if (!targetEvent) {
+      return
+    }
+
+    const confirmed = window.confirm(`Supprimer l’événement « ${targetEvent.title} » ?`)
+
+    if (!confirmed) {
+      return
+    }
+
+    setAgendaEvents((current) => current.filter((event) => event.id !== eventId))
+    setAgendaSelectedDate(null)
+    setAgendaEditingId(null)
+    setAgendaForm({
+      title: '',
+      description: '',
+      date: formatAgendaDateKey(agendaDate),
+      startTime: '09:00',
+      endTime: '10:00',
+      category: 'réunion',
+      priority: 'normale',
+      important: Boolean(agendaImportantDays[formatAgendaDateKey(agendaDate)]),
+    })
+    setMessage('Événement supprimé.')
+  }
+
+  const getWeekNumber = (date: Date) => {
+    const copy = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()))
+    const day = copy.getUTCDay() || 7
+    copy.setUTCDate(copy.getUTCDate() + 4 - day)
+    const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1))
+    const diffInDays = Math.round((copy.getTime() - yearStart.getTime()) / 86400000)
+    return `S${Math.ceil((diffInDays + 1) / 7)}`
+  }
+
+  const getAgendaMonthDays = () => {
+    const monthStart = new Date(agendaDate.getFullYear(), agendaDate.getMonth(), 1)
+    const startWeekDay = (monthStart.getDay() + 6) % 7
+    const firstGridDate = new Date(monthStart)
+    firstGridDate.setDate(monthStart.getDate() - startWeekDay)
+
+    const cells: Array<{ date: Date; isCurrentMonth: boolean }> = []
+
+    for (let index = 0; index < 42; index += 1) {
+      const current = new Date(firstGridDate)
+      current.setDate(firstGridDate.getDate() + index)
+      cells.push({
+        date: current,
+        isCurrentMonth: current.getMonth() === agendaDate.getMonth(),
+      })
+    }
+
+    return cells
+  }
+
+  const agendaDays = getAgendaMonthDays()
+
+  const agendaYearMonths = Array.from({ length: 12 }, (_, monthIndex) => {
+    const monthLabel = new Date(agendaDate.getFullYear(), monthIndex, 1).toLocaleDateString('fr-FR', {
+      month: 'long',
+    })
+
+    return {
+      monthIndex,
+      label: monthLabel,
+      events: agendaEvents.filter((event) => {
+        const eventDate = new Date(`${event.date}T00:00:00`)
+        return eventDate.getFullYear() === agendaDate.getFullYear() && eventDate.getMonth() === monthIndex
+      }).length,
+    }
+  })
+
+  const handleAgendaMonthChange = (offset: number) => {
+    const nextMonth = new Date(agendaDate)
+    nextMonth.setMonth(nextMonth.getMonth() + offset)
+    setAgendaDate(nextMonth)
+    setAgendaSelectedDate(null)
+  }
+
+  const resetAgendaToToday = () => {
+    const today = new Date()
+    setAgendaDate(today)
+    setAgendaSelectedDate(null)
+  }
+
+  const handleTransportDriverSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const payload = {
+      first_name: transportForm.first_name.trim(),
+      last_name: transportForm.last_name.trim(),
+      phone: transportForm.phone.trim(),
+      license_number: transportForm.license_number.trim(),
+      license_category: transportForm.license_category.trim() || 'B',
+      license_expiry_date: transportForm.license_expiry_date || undefined,
+      hire_date: transportForm.hire_date || undefined,
+      status: transportForm.status,
+      notes: transportForm.notes.trim(),
+      vehicle_id: transportForm.vehicle_id ? Number(transportForm.vehicle_id) : undefined,
+      vehicle_type: transportActiveCategory,
+    }
+
+    if (!payload.first_name || !payload.last_name || !payload.phone || !payload.license_number) {
+      setMessage('Merci de remplir les informations du chauffeur.')
+      return
+    }
+
+    try {
+      const endpoint = transportFormMode === 'edit' && editingDriverId !== null
+        ? `${apiBaseUrl}/transport/drivers/${editingDriverId}`
+        : `${apiBaseUrl}/transport/drivers`
+
+      const response = await fetch(endpoint, {
+        method: transportFormMode === 'edit' ? 'PATCH' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorPayload = (await response.json().catch(() => ({}))) as { data?: { message?: string } }
+        throw new Error(errorPayload.data?.message || 'Erreur lors de l’enregistrement du chauffeur.')
+      }
+
+      setMessage('Chauffeur enregistré avec succès.')
+      setIsTransportDriverFormOpen(false)
+      resetTransportForm()
+      await loadTransportSummary()
+      await loadTransportData()
+    } catch (error) {
+      console.error('Erreur ajout chauffeur :', error)
+      setMessage(error instanceof Error ? error.message : 'Impossible d’enregistrer ce chauffeur.')
+    }
+  }
+
+  const handleTransportDriverStatusUpdate = async (driverId: number, status: string) => {
+    try {
+      const response = await fetch(`${apiBaseUrl}/transport/drivers/${driverId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status }),
+      })
+
+      if (!response.ok) {
+        throw new Error('Impossible de mettre à jour le statut du chauffeur.')
+      }
+
+      await loadTransportSummary()
+      await loadTransportData()
+    } catch (error) {
+      console.error('Erreur mise à jour chauffeur :', error)
+      setMessage(error instanceof Error ? error.message : 'Erreur lors de la mise à jour du chauffeur.')
     }
   }
 
@@ -564,6 +1239,13 @@ function App() {
   }, [view])
 
   useEffect(() => {
+    if (view === 'transport') {
+      void loadTransportSummary()
+      void loadTransportData()
+    }
+  }, [view, transportSelectedCategory])
+
+  useEffect(() => {
     if (btpPlans.length < 2) {
       return
     }
@@ -584,11 +1266,20 @@ function App() {
       setTheme(savedTheme)
     }
 
-    const savedCode = localStorage.getItem('beaterra_security_code')
+    const savedCode = localStorage.getItem(ACCESS_CODE_KEY)
+    const savedPasswordHash = localStorage.getItem(PASSWORD_HASH_KEY)
 
     if (savedCode) {
-      setSecurityCode(savedCode)
+      setSecurityCode('••••••••')
+      setLockMessage('Saisissez votre mot de passe pour continuer.')
+    } else if (savedPasswordHash) {
+      setSecurityCode('••••••••')
+      setLockMessage('Saisissez votre mot de passe pour continuer.')
+    } else {
+      setLockMessage('Définissez un mot de passe pour activer le verrouillage.')
     }
+
+    setIsAppLocked(true)
   }, [])
 
   useEffect(() => {
@@ -596,34 +1287,205 @@ function App() {
     localStorage.setItem('beaterra_theme', theme)
   }, [theme])
 
+  useEffect(() => {
+    localStorage.setItem(AGENDA_EVENTS_KEY, JSON.stringify(agendaEvents))
+  }, [agendaEvents])
+
+  useEffect(() => {
+    localStorage.setItem(AGENDA_IMPORTANT_DAYS_KEY, JSON.stringify(agendaImportantDays))
+  }, [agendaImportantDays])
+
   const pageTitle = useMemo(() => {
     const item = navigation.find((entry) => entry.id === view)
 
     return item ? item.label : 'Tableau de bord'
   }, [view])
 
-  const changeSecurityCode = () => {
-    if (!/^\d{4,8}$/.test(newCode)) {
-      setMessage('Le code doit contenir entre 4 et 8 chiffres.')
+  const handleNavigateToView = (nextView: View) => {
+    setNavigationHistory((current) => {
+      const last = current[current.length - 1]
+
+      if (last === nextView) {
+        return current
+      }
+
+      return [...current, nextView]
+    })
+    setView(nextView)
+  }
+
+  const handleBackNavigation = () => {
+    if (transportSelectedCategory !== 'overview') {
+      setTransportSelectedCategory('overview')
       return
     }
 
-    localStorage.setItem('beaterra_security_code', newCode)
-    setSecurityCode(newCode)
+    if (navigationHistory.length <= 1) {
+      setView('dashboard')
+      return
+    }
+
+    const previousView = navigationHistory[navigationHistory.length - 2] ?? 'dashboard'
+
+    setNavigationHistory((current) => current.slice(0, -1))
+    setView(previousView)
+  }
+
+  const changeSecurityCode = async () => {
+    const nextCode = newCode
+    const confirmation = confirmNewCode
+
+    if (!nextCode) {
+      setMessage('Le mot de passe ne peut pas être vide.')
+      return
+    }
+
+    if (nextCode.length < 6) {
+      setMessage('Le mot de passe doit contenir au moins 6 caractères.')
+      return
+    }
+
+    if (nextCode !== confirmation) {
+      setMessage('Les deux saisies du mot de passe ne correspondent pas.')
+      return
+    }
+
+    localStorage.setItem(ACCESS_CODE_KEY, nextCode)
+    setSecurityCode('••••••••')
     setNewCode('')
-    setMessage('Code de sécurité enregistré.')
+    setConfirmNewCode('')
+    setMessage('Mot de passe enregistré avec sécurité.')
   }
 
   const handleLogout = () => {
     sessionStorage.removeItem('beaterra_session')
     localStorage.removeItem('beaterra_session')
+    setNavigationHistory(['dashboard'])
     setView('dashboard')
+    setLockCode('')
+    setIsAppLocked(true)
+    setLockMessage('Saisissez votre mot de passe pour continuer.')
     setMessage('Session déconnectée.')
   }
 
+  const handleUnlockApp = async () => {
+    const currentCode = lockCode
+
+    if (!currentCode) {
+      setLockMessage('Veuillez saisir un mot de passe.')
+      return
+    }
+
+    const savedCode = localStorage.getItem(ACCESS_CODE_KEY)
+    const savedHash = localStorage.getItem(PASSWORD_HASH_KEY)
+
+    if (savedCode && currentCode === savedCode) {
+      setIsAppLocked(false)
+      setLockCode('')
+      setLockMessage('Saisissez votre mot de passe pour continuer.')
+      return
+    }
+
+    if (savedHash && (await verifyAccessPassword(currentCode, savedHash))) {
+      setIsAppLocked(false)
+      setLockCode('')
+      setLockMessage('Saisissez votre mot de passe pour continuer.')
+      return
+    }
+
+    setLockMessage('Mot de passe invalide. Veuillez réessayer.')
+    setLockCode('')
+  }
+
+  useEffect(() => {
+    if (!isAppLocked || !lockCode) {
+      return
+    }
+
+    const savedCode = localStorage.getItem(ACCESS_CODE_KEY)
+
+    if (savedCode && lockCode === savedCode) {
+      void handleUnlockApp()
+      return
+    }
+
+    const tryAutoUnlock = async () => {
+      const savedHash = localStorage.getItem(PASSWORD_HASH_KEY)
+
+      if (!savedHash) {
+        return
+      }
+
+      const isValidHash = await verifyAccessPassword(lockCode, savedHash)
+
+      if (isValidHash) {
+        void handleUnlockApp()
+      }
+    }
+
+    void tryAutoUnlock()
+  }, [isAppLocked, lockCode])
+
   return (
     <div className={'app-shell ' + theme}>
-      <aside className="sidebar">
+      <button
+        type="button"
+        className={'sidebar-toggle-floating ' + (isSidebarCollapsed ? 'collapsed' : '')}
+        onClick={() => setIsSidebarCollapsed((current) => !current)}
+        aria-label={isSidebarCollapsed ? 'Afficher la barre latérale' : 'Masquer la barre latérale'}
+      >
+        {isSidebarCollapsed ? (
+          <PanelLeftOpen aria-hidden="true" size={18} strokeWidth={1.8} />
+        ) : (
+          <PanelLeftClose aria-hidden="true" size={18} strokeWidth={1.8} />
+        )}
+      </button>
+
+      {isAppLocked && (
+        <div className="lock-screen-backdrop">
+          <div className="lock-screen-panel">
+            <div className="lock-screen-brand">
+              <img
+                src={logo}
+                alt="Logo officiel BEATERRA"
+                className="lock-screen-logo"
+              />
+            </div>
+
+            <div className="lock-screen-copy">
+              <p className="eyebrow">CONNEXION</p>
+              <h2>Accès sécurisé</h2>
+              <p>{lockMessage}</p>
+            </div>
+
+            <label className="lock-screen-input">
+              <span>Mot de passe</span>
+              <div className="password-input-shell">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={lockCode}
+                  onChange={(event) => setLockCode(event.target.value)}
+                  placeholder="Votre mot de passe"
+                />
+                <button
+                  type="button"
+                  className="password-visibility-button"
+                  onClick={() => setShowPassword((current) => !current)}
+                  aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                >
+                  {showPassword ? <EyeOff aria-hidden="true" size={16} /> : <Eye aria-hidden="true" size={16} />}
+                </button>
+              </div>
+            </label>
+
+            <button type="button" className="primary-button" onClick={() => void handleUnlockApp()}>
+              Déverrouiller
+            </button>
+          </div>
+        </div>
+      )}
+
+      <aside className={'sidebar ' + (isSidebarCollapsed ? 'collapsed' : '')}>
         <div className="brand">
           <img
             src={logo}
@@ -650,7 +1512,7 @@ function App() {
                 (view === item.id ? 'active' : '')
               }
               onClick={() => {
-                setView(item.id)
+                handleNavigateToView(item.id)
                 setMessage('')
               }}
             >
@@ -691,16 +1553,25 @@ function App() {
 
       <main className="main-content">
         <header className="topbar">
-          <div>
-            <p className="eyebrow">
-              BEATERRA OS
-            </p>
+          <div className="topbar-main">
+            {(transportSelectedCategory !== 'overview' || view !== 'dashboard') && (
+              <button type="button" className="back-button" onClick={handleBackNavigation}>
+                <ArrowLeft aria-hidden="true" size={16} strokeWidth={1.8} />
+                <span>Retour</span>
+              </button>
+            )}
 
-            <h1>{pageTitle}</h1>
+            <div>
+              <p className="eyebrow">
+                BEATERRA OS
+              </p>
 
-            <p className="subtitle">
-              Pilotage centralisé des activités de BEATERRA.
-            </p>
+              <h1>{pageTitle}</h1>
+
+              <p className="subtitle">
+                Pilotage centralisé des activités de BEATERRA.
+              </p>
+            </div>
           </div>
 
           <div className="profile-badge">
@@ -825,7 +1696,7 @@ function App() {
                     key={pole.id}
                     type="button"
                     className="pole-card"
-                    onClick={() => setView(pole.id)}
+                    onClick={() => handleNavigateToView(pole.id)}
                   >
                     <span
                       className={
@@ -1200,64 +2071,377 @@ function App() {
             <div className="module-hero">
               <div>
                 <p className="eyebrow">
-                  PÔLE TRANSPORT
+                  {transportHeroEyebrow}
                 </p>
 
                 <h2>
-                  Transport
+                  {transportHeroTitle}
                 </h2>
 
                 <p>
-                  Gérez vos véhicules, conducteurs et opérations
-                  de transport depuis un espace unique.
+                  {transportHeroDescription}
                 </p>
               </div>
 
-              <TransportSlideshow />
+              <TransportSlideshow
+                images={currentTransportHeroImage}
+                alt={
+                  transportSelectedCategory === 'overview'
+                    ? 'Véhicule de transport'
+                    : `${transportHeroTitle} BEATERRA`
+                }
+              />
             </div>
 
-            <div className="dashboard-grid">
-              <article className="panel panel-large">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">
-                      ÉVOLUTION
-                    </p>
+            {transportSelectedCategory === 'overview' && (
+              <>
+                <div className="transport-category-grid">
+                  {transportCategories.map((category) => {
+                    const summary = transportSummary[category.id]
+                    const imageSource =
+                      transportImageByName[`${category.id === 'truck' ? 'camion' : category.id === 'bus' ? 'bus' : category.id === 'taxi' ? 'taxi' : 'moto'}.png`] ||
+                      transportImages[0]
 
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        className="transport-category-card"
+                        onClick={() => setTransportSelectedCategory(category.id)}
+                      >
+                        <img src={imageSource} alt={category.label} />
+                        <div className="transport-card-content">
+                          <span className="transport-card-icon">
+                            <category.icon aria-hidden="true" size={18} strokeWidth={2} />
+                          </span>
+                          <strong>{category.label}</strong>
+                          <small>
+                            {summary.total} véhicule{summary.total > 1 ? 's' : ''}
+                          </small>
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <section className="dashboard-grid">
+                  <article className="panel panel-large">
+                    <div className="panel-heading">
+                      <div>
+                        <p className="eyebrow">ÉVOLUTION</p>
+                        <h2>Activité Transport</h2>
+                      </div>
+                      <span className="period-badge">7 jours</span>
+                    </div>
+                    <EmptyLineChart />
+                  </article>
+
+                  <article className="panel">
+                    <div className="panel-heading">
+                      <div>
+                        <p className="eyebrow">RÉPARTITION</p>
+                        <h2>Par catégorie</h2>
+                      </div>
+                    </div>
+                    <EmptyBarChart />
+                  </article>
+                </section>
+              </>
+            )}
+
+            {transportSelectedCategory !== 'overview' && (
+              <section className="transport-management panel">
+                <div className="panel-heading transport-panel-heading">
+                  <div>
+                    <p className="eyebrow">GESTION</p>
                     <h2>
-                      Activité du module
+                      {transportCategoryTitle[transportSelectedCategory]}
                     </h2>
+                  </div>
+
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={openTransportDriverForm}
+                  >
+                    + Ajouter un chauffeur
+                  </button>
+                </div>
+
+                <div className="transport-stat-grid transport-vehicle-stat-grid">
+                  {transportSpecificCards.map((card) => (
+                    <article key={card.label} className="transport-stat-item">
+                      <span>{card.label}</span>
+                      <strong>{card.value}</strong>
+                      <small>{card.suffix}</small>
+                    </article>
+                  ))}
+                </div>
+
+                {isTransportDriverFormOpen && (
+                  <form className="transport-form" onSubmit={handleTransportDriverSubmit}>
+                    <div className="transport-form-grid">
+                      <label>
+                        <span>Numéro d'identification</span>
+                        <input value="Généré automatiquement" readOnly />
+                      </label>
+                      <label>
+                        <span>Nom complet</span>
+                        <input
+                          name="first_name"
+                          value={transportForm.first_name}
+                          onChange={handleTransportInputChange}
+                          placeholder="Prénom"
+                        />
+                      </label>
+                      <label>
+                        <span>Nom</span>
+                        <input
+                          name="last_name"
+                          value={transportForm.last_name}
+                          onChange={handleTransportInputChange}
+                          placeholder="Nom"
+                        />
+                      </label>
+                      <label>
+                        <span>Téléphone</span>
+                        <input
+                          name="phone"
+                          value={transportForm.phone}
+                          onChange={handleTransportInputChange}
+                          placeholder="+221 ..."
+                        />
+                      </label>
+                      <label>
+                        <span>Numéro de permis</span>
+                        <input
+                          name="license_number"
+                          value={transportForm.license_number}
+                          onChange={handleTransportInputChange}
+                          placeholder="Permis"
+                        />
+                      </label>
+                      <label>
+                        <span>Catégorie de permis</span>
+                        <input
+                          name="license_category"
+                          value={transportForm.license_category}
+                          onChange={handleTransportInputChange}
+                          placeholder="B"
+                        />
+                      </label>
+                      <label>
+                        <span>Date d’expiration</span>
+                        <input
+                          name="license_expiry_date"
+                          type="date"
+                          value={transportForm.license_expiry_date}
+                          onChange={handleTransportInputChange}
+                        />
+                      </label>
+                      <label>
+                        <span>Type de véhicule</span>
+                        <input value={transportCategories.find((category) => category.id === transportSelectedCategory)?.label ?? 'Moto'} readOnly />
+                      </label>
+                      <label>
+                        <span>Véhicule affecté</span>
+                        <select
+                          name="vehicle_id"
+                          value={transportForm.vehicle_id}
+                          onChange={handleTransportInputChange}
+                        >
+                          <option value="">Aucun véhicule</option>
+                          {transportVehicles.map((vehicle) => (
+                            <option key={vehicle.id} value={vehicle.id}>
+                              {vehicle.registration_number} · {vehicle.brand} {vehicle.model}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Immatriculation</span>
+                        <input value={transportVehicles.find((vehicle) => String(vehicle.id) === transportForm.vehicle_id)?.registration_number ?? '—'} readOnly />
+                      </label>
+                      <label>
+                        <span>Date d’entrée</span>
+                        <input
+                          name="hire_date"
+                          type="date"
+                          value={transportForm.hire_date}
+                          onChange={handleTransportInputChange}
+                        />
+                      </label>
+                      <label>
+                        <span>Statut</span>
+                        <select
+                          name="status"
+                          value={transportForm.status}
+                          onChange={handleTransportInputChange}
+                        >
+                          <option value="active">Actif</option>
+                          <option value="inactive">Inactif</option>
+                          <option value="on_leave">En congé</option>
+                          <option value="suspended">Suspendu</option>
+                        </select>
+                      </label>
+                      <label className="transport-form-full">
+                        <span>Notes / observations</span>
+                        <textarea
+                          name="notes"
+                          value={transportForm.notes}
+                          onChange={handleTransportInputChange}
+                          rows={3}
+                          placeholder="Observations"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="transport-form-actions">
+                      <button type="button" className="secondary-button" onClick={() => setIsTransportDriverFormOpen(false)}>
+                        Annuler
+                      </button>
+                      <button type="submit" className="primary-button">
+                        {transportFormMode === 'edit' ? 'Enregistrer' : 'Ajouter'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+
+                <div className="transport-chauffeurs-header">
+                  <div>
+                    <p className="eyebrow">CHAUFFEURS</p>
+                    <h3>
+                      {transportCategories.find((category) => category.id === transportSelectedCategory)?.label}
+                    </h3>
                   </div>
                 </div>
 
-                <EmptyLineChart />
-              </article>
-
-              <article className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">
-                      DONNÉES
-                    </p>
-
-                    <h2>
-                      Activité récente
-                    </h2>
-                  </div>
+                <div className="transport-table-toolbar">
+                  <input
+                    type="search"
+                    value={transportSearch}
+                    onChange={(event) => setTransportSearch(event.target.value)}
+                    placeholder="Rechercher par nom, téléphone, permis, immatriculation..."
+                  />
+                  <select
+                    value={transportStatusFilter}
+                    onChange={(event) => setTransportStatusFilter(event.target.value)}
+                  >
+                    <option value="all">Tous</option>
+                    <option value="active">Actif</option>
+                    <option value="inactive">Inactif</option>
+                    <option value="on_leave">En congé</option>
+                    <option value="suspended">Suspendu</option>
+                  </select>
                 </div>
 
-                <div className="empty-table">
-                  <strong>
-                    Aucune donnée enregistrée
-                  </strong>
+                <div className="transport-table-wrap">
+                  <table className="transport-table">
+                    <thead>
+                      <tr>
+                        <th>N°</th>
+                        <th>Nom complet</th>
+                        <th>Téléphone</th>
+                        <th>N° de permis</th>
+                        <th>Catégorie</th>
+                        <th>Véhicule affecté</th>
+                        <th>Immatriculation</th>
+                        <th>Statut</th>
+                        <th>Date d’entrée</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {transportDrivers
+                        .filter((driver) => {
+                          const matchesStatus =
+                            transportStatusFilter === 'all' || driver.status === transportStatusFilter
 
-                  <span>
-                    Les informations apparaîtront
-                    automatiquement ici.
-                  </span>
+                          const matchesSearch =
+                            !transportSearch.trim() ||
+                            `${driver.full_name} ${driver.phone} ${driver.driver_code} ${driver.license_number} ${driver.registration_number ?? ''}`
+                              .toLowerCase()
+                              .includes(transportSearch.trim().toLowerCase())
+
+                          return matchesStatus && matchesSearch
+                        })
+                        .map((driver) => (
+                          <tr key={driver.id}>
+                            <td>{driver.driver_code}</td>
+                            <td>{driver.full_name}</td>
+                            <td>{driver.phone}</td>
+                            <td>{driver.license_number}</td>
+                            <td>{driver.license_category}</td>
+                            <td>{driver.brand && driver.model ? `${driver.brand} ${driver.model}` : '—'}</td>
+                            <td>{driver.registration_number || '—'}</td>
+                            <td>
+                              <span className={'transport-status transport-status-' + driver.status}>
+                                {driver.status === 'active'
+                                  ? 'Actif'
+                                  : driver.status === 'inactive'
+                                    ? 'Inactif'
+                                    : driver.status === 'on_leave'
+                                      ? 'En congé'
+                                      : 'Suspendu'}
+                              </span>
+                            </td>
+                            <td>{driver.hire_date ? new Date(driver.hire_date).toLocaleDateString('fr-FR') : '—'}</td>
+                            <td>
+                              <div className="transport-actions">
+                                <button type="button" className="table-action-link" onClick={() => {
+                                  setTransportForm({
+                                    first_name: driver.first_name,
+                                    last_name: driver.last_name,
+                                    phone: driver.phone,
+                                    license_number: driver.license_number,
+                                    license_category: driver.license_category,
+                                    license_expiry_date: driver.license_expiry_date ?? '',
+                                    hire_date: driver.hire_date ?? '',
+                                    status: driver.status,
+                                    notes: driver.notes ?? '',
+                                    vehicle_id: driver.vehicle_id ? String(driver.vehicle_id) : '',
+                                  })
+                                  setEditingDriverId(driver.id)
+                                  setTransportFormMode('edit')
+                                  setIsTransportDriverFormOpen(true)
+                                }}>
+                                  Voir
+                                </button>
+                                <button type="button" className="table-action-link" onClick={() => {
+                                  setTransportForm({
+                                    first_name: driver.first_name,
+                                    last_name: driver.last_name,
+                                    phone: driver.phone,
+                                    license_number: driver.license_number,
+                                    license_category: driver.license_category,
+                                    license_expiry_date: driver.license_expiry_date ?? '',
+                                    hire_date: driver.hire_date ?? '',
+                                    status: driver.status,
+                                    notes: driver.notes ?? '',
+                                    vehicle_id: driver.vehicle_id ? String(driver.vehicle_id) : '',
+                                  })
+                                  setEditingDriverId(driver.id)
+                                  setTransportFormMode('edit')
+                                  setIsTransportDriverFormOpen(true)
+                                }}>
+                                  Modifier
+                                </button>
+                                <button type="button" className="table-action-link danger" onClick={() => {
+                                  if (window.confirm('Désactiver ce chauffeur ?')) {
+                                    void handleTransportDriverStatusUpdate(driver.id, 'inactive')
+                                  }
+                                }}>
+                                  Désactiver
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
                 </div>
-              </article>
-            </div>
+              </section>
+            )}
           </section>
         )}
 
@@ -1521,9 +2705,9 @@ function App() {
               </div>
             </div>
 
-            <div className="dashboard-grid">
-              <article className="panel panel-large">
-                <div className="panel-heading">
+            <div className="agenda-shell">
+              <article className="panel agenda-panel">
+                <div className="panel-heading agenda-panel-heading">
                   <div>
                     <p className="eyebrow">
                       PLANNING
@@ -1533,43 +2717,311 @@ function App() {
                       Agenda
                     </h2>
                   </div>
-                </div>
 
-                <div className="empty-table">
-                  <strong>
-                    Aucune tâche planifiée
-                  </strong>
-
-                  <span>
-                    Votre planning apparaîtra ici.
-                  </span>
-                </div>
-              </article>
-
-              <article className="panel">
-                <div className="panel-heading">
-                  <div>
-                    <p className="eyebrow">
-                      PRIORITÉS
-                    </p>
-
-                    <h2>
-                      Important / urgent
-                    </h2>
+                  <div className="agenda-controls">
+                    <button
+                      type="button"
+                      className="agenda-nav-button"
+                      onClick={() => handleAgendaMonthChange(-1)}
+                      aria-label="Mois précédent"
+                    >
+                      <ChevronLeft aria-hidden="true" size={15} strokeWidth={2} />
+                    </button>
+                    <button type="button" className="agenda-today-button" onClick={resetAgendaToToday}>
+                      {agendaView === 'month' ? agendaMonthLabel : agendaYearLabel}
+                    </button>
+                    <button
+                      type="button"
+                      className="agenda-nav-button"
+                      onClick={() => handleAgendaMonthChange(1)}
+                      aria-label="Mois suivant"
+                    >
+                      <ChevronRight aria-hidden="true" size={15} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className="agenda-view-toggle"
+                      onClick={() => setAgendaView((current) => (current === 'month' ? 'year' : 'month'))}
+                    >
+                      {agendaView === 'month' ? 'Vue annuelle' : 'Vue mensuelle'}
+                    </button>
                   </div>
                 </div>
 
-                <div className="empty-table">
-                  <strong>
-                    Aucune priorité
-                  </strong>
+                {agendaView === 'month' ? (
+                  <div className="agenda-calendar">
+                    <div className="agenda-week-header">
+                      <span className="agenda-week-label">Sem.</span>
+                      {agendaWeekDays.map((day) => (
+                        <span key={day}>{day}</span>
+                      ))}
+                    </div>
 
-                  <span>
-                    Ajoutez des tâches pour alimenter
-                    cette vue.
-                  </span>
-                </div>
+                    <div className="agenda-month-grid">
+                      {Array.from({ length: 6 }, (_, rowIndex) => {
+                        const weekDates = agendaDays.slice(rowIndex * 7, rowIndex * 7 + 7)
+                        const weekNumber = getWeekNumber(weekDates[0].date)
+
+                        return (
+                          <div key={weekNumber} className="agenda-week-row">
+                            <span className="agenda-week-number">{weekNumber}</span>
+                            {weekDates.map(({ date, isCurrentMonth }) => {
+                              const isToday =
+                                date.getFullYear() === new Date().getFullYear() &&
+                                date.getMonth() === new Date().getMonth() &&
+                                date.getDate() === new Date().getDate()
+                              const events = getAgendaCellEvents(date)
+                              const isImportant = Boolean(agendaImportantDays[formatAgendaDateKey(date)])
+
+                              return (
+                                <button
+                                  key={`${formatAgendaDateKey(date)}-${rowIndex}`}
+                                  type="button"
+                                  className={
+                                    'agenda-day ' +
+                                    (isCurrentMonth ? 'in-month' : 'outside-month') +
+                                    (isToday ? ' today' : '') +
+                                    (isImportant ? ' important' : '')
+                                  }
+                                  onClick={() => openAgendaDateEditor(date)}
+                                >
+                                  <div className="agenda-day-header">
+                                    <span className="agenda-day-number">{date.getDate()}</span>
+                                    {isImportant && <span className="agenda-important-marker">★</span>}
+                                  </div>
+
+                                  {events.slice(0, 2).map((event) => (
+                                    <span
+                                      key={event.id}
+                                      className={'agenda-event-pill ' + event.priority}
+                                    >
+                                      {event.title}
+                                    </span>
+                                  ))}
+
+                                  {events.length > 2 && (
+                                    <span className="agenda-more-events">+{events.length - 2}</span>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="agenda-year-view">
+                    {agendaYearMonths.map((month) => (
+                      <button
+                        key={month.monthIndex}
+                        type="button"
+                        className="agenda-year-month"
+                        onClick={() => {
+                          const nextDate = new Date(agendaDate)
+                          nextDate.setMonth(month.monthIndex)
+                          setAgendaDate(nextDate)
+                          setAgendaView('month')
+                        }}
+                      >
+                        <span>{month.label}</span>
+                        <strong>{month.events}</strong>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </article>
+
+              <aside className="panel agenda-side-panel">
+                <div className="panel-heading agenda-side-heading">
+                  <div>
+                    <p className="eyebrow">
+                      {agendaSelectedDate ? 'JOUR SÉLECTIONNÉ' : 'PLANIFICATION'}
+                    </p>
+                    <h2>
+                      {agendaSelectedDate
+                        ? new Date(`${agendaSelectedDate}T00:00:00`).toLocaleDateString('fr-FR', {
+                            weekday: 'long',
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          })
+                        : 'Choisir une date'}
+                    </h2>
+                  </div>
+
+                  {agendaSelectedDate && (
+                    <button
+                      type="button"
+                      className="agenda-add-event-button"
+                      onClick={() => openAgendaDateEditor(new Date(`${agendaSelectedDate}T00:00:00`))}
+                    >
+                      + Ajouter
+                    </button>
+                  )}
+                </div>
+
+                {agendaSelectedDate ? (
+                  <>
+                    <div className="agenda-day-meta">
+                      <span className={'agenda-day-badge ' + (agendaImportantDays[agendaSelectedDate] ? 'important' : 'standard')}>
+                        {agendaImportantDays[agendaSelectedDate] ? 'Journée importante' : 'Journée standard'}
+                      </span>
+                    </div>
+
+                    <div className="agenda-event-list">
+                      {getAgendaCellEvents(new Date(`${agendaSelectedDate}T00:00:00`)).length > 0 ? (
+                        getAgendaCellEvents(new Date(`${agendaSelectedDate}T00:00:00`)).map((event) => (
+                          <div key={event.id} className="agenda-event-item">
+                            <div className="agenda-event-card-header">
+                              <span className={'agenda-event-tag ' + event.priority}>{event.priority}</span>
+                              <span className="agenda-event-category">{event.category}</span>
+                            </div>
+
+                            <strong>{event.title}</strong>
+                            {event.description && <p>{event.description}</p>}
+                            <small>
+                              {event.startTime} - {event.endTime}
+                            </small>
+
+                            <div className="agenda-event-actions">
+                              <button
+                                type="button"
+                                className="table-action-link"
+                                onClick={() => openAgendaDateEditor(new Date(`${event.date}T00:00:00`), event.id)}
+                              >
+                                Modifier
+                              </button>
+                              <button
+                                type="button"
+                                className="table-action-link danger"
+                                onClick={() => handleAgendaDelete(event.id)}
+                              >
+                                Supprimer
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="empty-table agenda-empty-list">
+                          <strong>Aucun événement</strong>
+                          <span>Ajoutez une réunion, tâche ou rendez-vous.</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <form className="agenda-form" onSubmit={handleAgendaSave}>
+                      <div className="agenda-form-row">
+                        <label>
+                          <span>Titre</span>
+                          <input
+                            name="title"
+                            value={agendaForm.title}
+                            onChange={handleAgendaFormChange}
+                            placeholder="Réunion stratégique"
+                          />
+                        </label>
+                        <label>
+                          <span>Catégorie</span>
+                          <select
+                            name="category"
+                            value={agendaForm.category}
+                            onChange={handleAgendaFormChange}
+                          >
+                            {agendaCategoryOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <label>
+                        <span>Description</span>
+                        <textarea
+                          name="description"
+                          value={agendaForm.description}
+                          onChange={handleAgendaFormChange}
+                          rows={3}
+                          placeholder="Détails, objectifs et notes..."
+                        />
+                      </label>
+
+                      <div className="agenda-form-row">
+                        <label>
+                          <span>Date</span>
+                          <input
+                            name="date"
+                            type="date"
+                            value={agendaForm.date}
+                            onChange={handleAgendaFormChange}
+                          />
+                        </label>
+                        <label>
+                          <span>Priorité</span>
+                          <select
+                            name="priority"
+                            value={agendaForm.priority}
+                            onChange={handleAgendaFormChange}
+                          >
+                            {agendaPriorityOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+
+                      <div className="agenda-form-row">
+                        <label>
+                          <span>Heure de début</span>
+                          <input
+                            name="startTime"
+                            type="time"
+                            value={agendaForm.startTime}
+                            onChange={handleAgendaFormChange}
+                          />
+                        </label>
+                        <label>
+                          <span>Heure de fin</span>
+                          <input
+                            name="endTime"
+                            type="time"
+                            value={agendaForm.endTime}
+                            onChange={handleAgendaFormChange}
+                          />
+                        </label>
+                      </div>
+
+                      <label className="agenda-check-row">
+                        <input
+                          type="checkbox"
+                          name="important"
+                          checked={agendaForm.important}
+                          onChange={handleAgendaFormChange}
+                        />
+                        <span>Marquer cette journée comme importante</span>
+                      </label>
+
+                      <div className="agenda-form-actions">
+                        <button type="button" className="secondary-button" onClick={resetAgendaForm}>
+                          Nouveau
+                        </button>
+                        <button type="submit" className="primary-button">
+                          {agendaEditingId ? 'Enregistrer' : 'Ajouter'}
+                        </button>
+                      </div>
+                    </form>
+                  </>
+                ) : (
+                  <div className="agenda-empty-state">
+                    <strong>Choisissez une date</strong>
+                    <span>Pour créer un événement, sélectionnez un jour du calendrier.</span>
+                  </div>
+                )}
+              </aside>
             </div>
           </section>
         )}
@@ -1592,42 +3044,58 @@ function App() {
 
                 <div className="settings-form">
                   <label>
-                    Code actuel
+                    Mot de passe actuel
 
                     <input
                       type="password"
-                      value={securityCode}
+                      value={securityCode || ''}
                       readOnly
-                      placeholder="Aucun code enregistré"
+                      placeholder="Aucun mot de passe enregistré"
                     />
                   </label>
 
                   <label>
-                    Nouveau code
+                    Nouveau mot de passe
+
+                    <div className="password-input-shell settings-password-shell">
+                      <input
+                        type={showPasswordSettings ? 'text' : 'password'}
+                        value={newCode}
+                        onChange={(event) => setNewCode(event.target.value)}
+                        placeholder="Au moins 6 caractères"
+                      />
+                      <button
+                        type="button"
+                        className="password-visibility-button"
+                        onClick={() => setShowPasswordSettings((current) => !current)}
+                        aria-label={showPasswordSettings ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                      >
+                        {showPasswordSettings ? <EyeOff aria-hidden="true" size={16} /> : <Eye aria-hidden="true" size={16} />}
+                      </button>
+                    </div>
+                  </label>
+
+                  <label>
+                    Confirmer le mot de passe
 
                     <input
-                      type="password"
-                      inputMode="numeric"
-                      maxLength={8}
-                      value={newCode}
-                      onChange={(event) =>
-                        setNewCode(
-                          event.target.value.replace(
-                            /\D/g,
-                            ''
-                          )
-                        )
-                      }
-                      placeholder="4 à 8 chiffres"
+                      type={showPasswordSettings ? 'text' : 'password'}
+                      value={confirmNewCode}
+                      onChange={(event) => setConfirmNewCode(event.target.value)}
+                      placeholder="Répétez le mot de passe"
                     />
                   </label>
+
+                  <div className="settings-password-rules">
+                    Mot de passe : lettres, chiffres et caractères spéciaux acceptés. Minimum 6 caractères.
+                  </div>
 
                   <button
                     type="button"
                     className="primary-button"
-                    onClick={changeSecurityCode}
+                    onClick={() => void changeSecurityCode()}
                   >
-                    Enregistrer le code
+                    Enregistrer le mot de passe
                   </button>
 
                   {message && (
